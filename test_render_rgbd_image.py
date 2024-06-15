@@ -10,7 +10,7 @@ from cloudrender.render import SimplePointcloud, DirectionalLight
 from cloudrender.camera import PerspectiveCameraModel
 from cloudrender.camera.trajectory import Trajectory
 from cloudrender.scene import Scene
-from cloudrender.capturing import AsyncPBOCapture
+from cloudrender.capturing import AsyncPBOCapture, DirectCapture
 from videoio import VideoWriter
 from OpenGL import GL as gl
 from tqdm import tqdm
@@ -18,6 +18,12 @@ from cloudrender.utils import trimesh_load_from_zip
 
 logger = logging.getLogger("main_script")
 logger.setLevel(logging.INFO)
+
+'''
+##### SETUP logging configuration to INFO level
+##### SET target resolution, framerate, video start time, and video length
+##### INITIALIZE OpenGL context using EGLContext
+'''
 
 # This example shows how to:
 # - render pointcloud
@@ -27,7 +33,7 @@ logger.setLevel(logging.INFO)
 # First, let's set the target resolution, framerate, video length and initialize OpenGL context.
 # We will use EGL offscreen rendering for that, but you can change it to whatever context you prefer (e.g. OsMesa, X-Server)
 resolution = (1280, 720)
-fps = 30.0
+fps = 1.0
 video_start_time = 6.0
 video_length_seconds = 12.0
 logger.info("Initializing EGL and OpenGL")
@@ -36,22 +42,27 @@ if not context.initialize(*resolution):
     print("Error during context initialization")
     sys.exit(0)
 
+'''
+##### CREATE and set up OpenGL framebuffers and renderbuffers
+##### CONFIGURE OpenGL settings
+'''
+
 # Now, let's create and set up OpenGL frame and renderbuffers
+################### set color and depth buffer
 _main_cb, _main_db = gl.glGenRenderbuffers(2)
 viewport_width, viewport_height = resolution
-
 gl.glBindRenderbuffer(gl.GL_RENDERBUFFER, _main_cb)
 gl.glRenderbufferStorage(
     gl.GL_RENDERBUFFER, gl.GL_RGBA,
     viewport_width, viewport_height
 )
-
 gl.glBindRenderbuffer(gl.GL_RENDERBUFFER, _main_db)
 gl.glRenderbufferStorage(
     gl.GL_RENDERBUFFER, gl.GL_DEPTH_COMPONENT24,
     viewport_width, viewport_height
 )
 
+################### set frame buffer
 _main_fb = gl.glGenFramebuffers(1)
 gl.glBindFramebuffer(gl.GL_DRAW_FRAMEBUFFER, _main_fb)
 gl.glFramebufferRenderbuffer(
@@ -63,6 +74,7 @@ gl.glFramebufferRenderbuffer(
     gl.GL_RENDERBUFFER, _main_db
 )
 
+################### set draw buffer
 gl.glBindFramebuffer(gl.GL_DRAW_FRAMEBUFFER, _main_fb)
 gl.glDrawBuffers([gl.GL_COLOR_ATTACHMENT0])
 
@@ -74,7 +86,12 @@ gl.glViewport(0, 0, *resolution)
 gl.glEnable(gl.GL_DEPTH_TEST)
 gl.glDepthMask(gl.GL_TRUE)
 gl.glDepthFunc(gl.GL_LESS)
-gl.glDepthRange(0.0, 1.0)
+gl.glDepthRange(0.0, 5.0)
+
+'''
+##### CREATE and set up camera
+##### CREATE a Scene object
+'''
 
 # Create and set a position of the camera
 camera = PerspectiveCameraModel()
@@ -83,6 +100,12 @@ camera.init_extrinsics(np.array([1, np.pi / 5, 0, 0]), np.array([0, -1, 2]))
 
 # Create a scene
 main_scene = Scene()
+
+'''
+##### LOAD pointcloud
+##### ADD directional light with shadows to scene
+##### CREATE camera trajectory
+'''
 
 # Load pointcloud
 logger.info("Loading pointcloud")
@@ -109,32 +132,44 @@ logger.info("Creating camera trajectory")
 camera_trajectory = Trajectory()
 camera_trajectory.set_trajectory(json.load(open("test_assets/TRAJ_SUB4_MPI_Etage6_working_standing.json")))
 camera_trajectory.refine_trajectory(time_step=1 / 30.0)
+print(camera_trajectory)
+
+'''
+##### RUN main drawing loop
+'''
 
 ### Main drawing loop ###
 logger.info("Running the main drawing loop")
-# Create a video writer to dump frames to and an async capturing controller
-with VideoWriter("test_assets/output.mp4", resolution=resolution, fps=fps) as vw, \
-        AsyncPBOCapture(resolution, queue_size=50) as capturing:
+
+from PIL import Image
+cnt = 0
+with DirectCapture(resolution) as capturing:
     for current_time in tqdm(np.arange(video_start_time, video_start_time + video_length_seconds, 1 / fps)):
         # Update dynamic objects
         shadowmap.camera.init_extrinsics(pose=shadowmap_offset)
         # Move the camera along the trajectory
         camera_trajectory.apply(camera, current_time)
+
         # Clear OpenGL buffers
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
         # Draw the scene
         main_scene.draw()
         # Request color readout; optionally receive previous request
         gl.glBindFramebuffer(gl.GL_READ_FRAMEBUFFER, _main_fb)
-        gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT0)
-        color = capturing.request_color_async()
-        # If received the previous frame, write it to the video
+
+        # gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT0)
+        color = capturing.request_color()
         if color is not None:
-            vw.write(color)
-    # Flush the remaining frames
-    logger.info("Flushing PBO queue")
-    color = capturing.get_first_requested_color()
-    while color is not None:
-        vw.write(color)
-        color = capturing.get_first_requested_color()
+            image = Image.fromarray(color)
+            image.save('/Titan/dataset/cloudrender/test_assets/rgb_frame/{:06}.png'.format(cnt))
+    
+        # gl.glReadBuffer(gl.GL_DEPTH_ATTACHMENT)
+        depth = capturing.request_depth()
+        if depth is not None:
+            depth_normalized = (depth * 1000).astype(np.uint16)
+            image = Image.fromarray(depth_normalized)
+            image.save('/Titan/dataset/cloudrender/test_assets/depth_frame/{:06}.png'.format(cnt))
+
+        cnt += 1
+
 logger.info("Done")
