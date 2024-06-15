@@ -14,6 +14,11 @@ from OpenGL import GL as gl
 from tqdm import tqdm
 from cloudrender.utils import trimesh_load_from_zip
 from PIL import Image
+import argparse
+
+parser = argparse.ArgumentParser(description='Render and save an RGBD image.')
+parser.add_argument('--path_input_data', type=str, default='path_input_data.ply', help='Path of input data.')
+args = parser.parse_args()
 
 # Initialize logging
 def initialize_logging():
