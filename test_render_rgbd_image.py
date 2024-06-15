@@ -34,8 +34,8 @@ logger.setLevel(logging.INFO)
 # We will use EGL offscreen rendering for that, but you can change it to whatever context you prefer (e.g. OsMesa, X-Server)
 resolution = (1280, 720)
 fps = 1.0
-video_start_time = 6.0
-video_length_seconds = 12.0
+video_start_time = 0.0
+video_length_seconds = 20.0
 logger.info("Initializing EGL and OpenGL")
 context = EGLContext()
 if not context.initialize(*resolution):
@@ -96,7 +96,7 @@ gl.glDepthRange(0.0, 5.0)
 # Create and set a position of the camera
 camera = PerspectiveCameraModel()
 camera.init_intrinsics(resolution, fov=75, far=50)
-camera.init_extrinsics(np.array([1, np.pi / 5, 0, 0]), np.array([0, -1, 2]))
+# camera.init_extrinsics(np.array([1, np.pi / 5, 0, 0]), np.array([0, -1, 2]))
 
 # Create a scene
 main_scene = Scene()
@@ -113,7 +113,9 @@ renderable_pc = SimplePointcloud(camera=camera)
 # Turn off shadow generation from pointcloud
 renderable_pc.generate_shadows = False
 renderable_pc.init_context()
-pointcloud = trimesh_load_from_zip("test_assets/MPI_Etage6.zip", "*/pointcloud.ply")
+# pointcloud = trimesh_load_from_zip("test_assets/MPI_Etage6.zip", "*/pointcloud.ply")
+import trimesh
+pointcloud = trimesh.load("test_assets/MPI_Etage6/pointcloud.ply")
 renderable_pc.set_buffers(pointcloud)
 main_scene.add_object(renderable_pc)
 
