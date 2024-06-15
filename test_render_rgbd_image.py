@@ -1,5 +1,3 @@
-# On some systems, EGL does not start properly if OpenGL was already initialized, that's why it's better
-# to keep EGLContext import on top
 from cloudrender.libegl import EGLContext
 import logging
 import numpy as np
@@ -15,163 +13,128 @@ from videoio import VideoWriter
 from OpenGL import GL as gl
 from tqdm import tqdm
 from cloudrender.utils import trimesh_load_from_zip
+from PIL import Image
 
-logger = logging.getLogger("main_script")
-logger.setLevel(logging.INFO)
+# Initialize logging
+def initialize_logging():
+	logger = logging.getLogger("main_script")
+	logger.setLevel(logging.INFO)
+	return logger
 
-'''
-##### SETUP logging configuration to INFO level
-##### SET target resolution, framerate, video start time, and video length
-##### INITIALIZE OpenGL context using EGLContext
-'''
+# Initialize OpenGL context using EGLContext
+def initialize_context(resolution):
+	context = EGLContext()
+	if not context.initialize(*resolution):
+		print("Error during context initialization")
+		sys.exit(0)
+	return context
 
-# This example shows how to:
-# - render pointcloud
-# - smoothly move the camera
-# - dump rendered frames to a video
+# Create and set up OpenGL framebuffers and renderbuffers
+def setup_framebuffers(resolution):
+	_main_cb, _main_db = gl.glGenRenderbuffers(2)
+	viewport_width, viewport_height = resolution
+	gl.glBindRenderbuffer(gl.GL_RENDERBUFFER, _main_cb)
+	gl.glRenderbufferStorage(gl.GL_RENDERBUFFER, gl.GL_RGBA, viewport_width, viewport_height)
+	gl.glBindRenderbuffer(gl.GL_RENDERBUFFER, _main_db)
+	gl.glRenderbufferStorage(gl.GL_RENDERBUFFER, gl.GL_DEPTH_COMPONENT24, viewport_width, viewport_height)
+	
+	_main_fb = gl.glGenFramebuffers(1)
+	gl.glBindFramebuffer(gl.GL_DRAW_FRAMEBUFFER, _main_fb)
+	gl.glFramebufferRenderbuffer(gl.GL_DRAW_FRAMEBUFFER, gl.GL_COLOR_ATTACHMENT0, gl.GL_RENDERBUFFER, _main_cb)
+	gl.glFramebufferRenderbuffer(gl.GL_DRAW_FRAMEBUFFER, gl.GL_DEPTH_ATTACHMENT, gl.GL_RENDERBUFFER, _main_db)
+	gl.glBindFramebuffer(gl.GL_DRAW_FRAMEBUFFER, _main_fb)
+	gl.glDrawBuffers([gl.GL_COLOR_ATTACHMENT0])
+	return _main_fb
 
-# First, let's set the target resolution, framerate, video length and initialize OpenGL context.
-# We will use EGL offscreen rendering for that, but you can change it to whatever context you prefer (e.g. OsMesa, X-Server)
-resolution = (1280, 720)
-fps = 1.0
-video_start_time = 0.0
-video_length_seconds = 20.0
-logger.info("Initializing EGL and OpenGL")
-context = EGLContext()
-if not context.initialize(*resolution):
-    print("Error during context initialization")
-    sys.exit(0)
-
-'''
-##### CREATE and set up OpenGL framebuffers and renderbuffers
-##### CONFIGURE OpenGL settings
-'''
-
-# Now, let's create and set up OpenGL frame and renderbuffers
-################### set color and depth buffer
-_main_cb, _main_db = gl.glGenRenderbuffers(2)
-viewport_width, viewport_height = resolution
-gl.glBindRenderbuffer(gl.GL_RENDERBUFFER, _main_cb)
-gl.glRenderbufferStorage(
-    gl.GL_RENDERBUFFER, gl.GL_RGBA,
-    viewport_width, viewport_height
-)
-gl.glBindRenderbuffer(gl.GL_RENDERBUFFER, _main_db)
-gl.glRenderbufferStorage(
-    gl.GL_RENDERBUFFER, gl.GL_DEPTH_COMPONENT24,
-    viewport_width, viewport_height
-)
-
-################### set frame buffer
-_main_fb = gl.glGenFramebuffers(1)
-gl.glBindFramebuffer(gl.GL_DRAW_FRAMEBUFFER, _main_fb)
-gl.glFramebufferRenderbuffer(
-    gl.GL_DRAW_FRAMEBUFFER, gl.GL_COLOR_ATTACHMENT0,
-    gl.GL_RENDERBUFFER, _main_cb
-)
-gl.glFramebufferRenderbuffer(
-    gl.GL_DRAW_FRAMEBUFFER, gl.GL_DEPTH_ATTACHMENT,
-    gl.GL_RENDERBUFFER, _main_db
-)
-
-################### set draw buffer
-gl.glBindFramebuffer(gl.GL_DRAW_FRAMEBUFFER, _main_fb)
-gl.glDrawBuffers([gl.GL_COLOR_ATTACHMENT0])
-
-# Let's configure OpenGL
-gl.glEnable(gl.GL_BLEND)
-gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
-gl.glClearColor(1.0, 1.0, 1.0, 0)
-gl.glViewport(0, 0, *resolution)
-gl.glEnable(gl.GL_DEPTH_TEST)
-gl.glDepthMask(gl.GL_TRUE)
-gl.glDepthFunc(gl.GL_LESS)
-gl.glDepthRange(0.0, 5.0)
-
-'''
-##### CREATE and set up camera
-##### CREATE a Scene object
-'''
+# Configure OpenGL settings
+def setup_opengl(resolution):
+	gl.glEnable(gl.GL_BLEND)
+	gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+	gl.glClearColor(1.0, 1.0, 1.0, 0)
+	gl.glViewport(0, 0, *resolution)
+	gl.glEnable(gl.GL_DEPTH_TEST)
+	gl.glDepthMask(gl.GL_TRUE)
+	gl.glDepthFunc(gl.GL_LESS)
+	gl.glDepthRange(0.0, 5.0)
 
 # Create and set a position of the camera
-camera = PerspectiveCameraModel()
-camera.init_intrinsics(resolution, fov=75, far=50)
-# camera.init_extrinsics(np.array([1, np.pi / 5, 0, 0]), np.array([0, -1, 2]))
+def create_camera(resolution):
+	camera = PerspectiveCameraModel()
+	camera.init_intrinsics(resolution, fov=75, far=50)
+	return camera
 
 # Create a scene
-main_scene = Scene()
+def create_scene():
+	return Scene()
 
-'''
-##### LOAD pointcloud
-##### ADD directional light with shadows to scene
-##### CREATE camera trajectory
-'''
+# Load pointcloud and add to scene
+def load_pointcloud(scene, camera):
+	renderable_pc = SimplePointcloud(camera=camera)
+	renderable_pc.generate_shadows = False
+	renderable_pc.init_context()
+	import trimesh
+	pointcloud = trimesh.load("test_assets/MPI_Etage6/pointcloud.ply")
+	renderable_pc.set_buffers(pointcloud)
+	scene.add_object(renderable_pc)
 
-# Load pointcloud
-logger.info("Loading pointcloud")
-renderable_pc = SimplePointcloud(camera=camera)
-# Turn off shadow generation from pointcloud
-renderable_pc.generate_shadows = False
-renderable_pc.init_context()
-# pointcloud = trimesh_load_from_zip("test_assets/MPI_Etage6.zip", "*/pointcloud.ply")
-import trimesh
-pointcloud = trimesh.load("test_assets/MPI_Etage6/pointcloud.ply")
-renderable_pc.set_buffers(pointcloud)
-main_scene.add_object(renderable_pc)
+# Add directional light with shadows to scene
+def setup_lighting(scene):
+	light = DirectionalLight(np.array([0.0, -1.0, -1.0]), np.array([0.8, 0.8, 0.8]))
+	shadowmap_offset = -light.direction * 3
+	shadowmap = scene.add_dirlight_with_shadow(
+		light=light, shadowmap_texsize=(1024, 1024),
+		shadowmap_worldsize=(4.0, 4.0, 10.0),
+		shadowmap_center=np.array([0.0, 0.0, 0.0]) + shadowmap_offset
+	)
+	return shadowmap
 
-# Add a directional light with shadows for this scene
-light = DirectionalLight(np.array([0.0, -1.0, -1.0]), np.array([0.8, 0.8, 0.8]))
+# Create camera trajectory
+def create_camera_trajectory():
+	camera_trajectory = Trajectory()
+	camera_trajectory.set_trajectory(json.load(open("test_assets/TRAJ_SUB4_MPI_Etage6_working_standing.json")))
+	camera_trajectory.refine_trajectory(time_step=1 / 30.0)
+	return camera_trajectory
 
-# Create a 4x4x10 meter shadowmap with 1024x1024 texture buffer and center it above the model along the direction
-# of the light. We will move the shadowmap with the model in the main loop
-shadowmap_offset = -light.direction * 3
-shadowmap = main_scene.add_dirlight_with_shadow(light=light, shadowmap_texsize=(1024, 1024),
-                                                shadowmap_worldsize=(4.0, 4.0, 10.0),
-                                                shadowmap_center=np.array([0.0, 0.0, 0.0]) + shadowmap_offset)
+# Main drawing loop
+def main_drawing_loop(resolution, fps, video_start_time, video_length_seconds):
+	logger = initialize_logging()
+	context = initialize_context(resolution)
+	_main_fb = setup_framebuffers(resolution)
+	setup_opengl(resolution)
+	camera = create_camera(resolution)
+	main_scene = create_scene()
+	load_pointcloud(main_scene, camera)
+	shadowmap = setup_lighting(main_scene)
+	camera_trajectory = create_camera_trajectory()
+	
+	cnt = 0
+	with DirectCapture(resolution) as capturing:
+		for current_time in tqdm(np.arange(video_start_time, video_start_time + video_length_seconds, 1 / fps)):
+			shadowmap.camera.init_extrinsics(pose=shadowmap_offset)
+			camera_trajectory.apply(camera, current_time)
+			gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
+			main_scene.draw()
+			gl.glBindFramebuffer(gl.GL_READ_FRAMEBUFFER, _main_fb)
+			
+			color = capturing.request_color()
+			if color is not None:
+				image = Image.fromarray(color)
+				image.save('/Titan/dataset/cloudrender/test_assets/rgb_frame/{:06}.png'.format(cnt))
+				
+			depth = capturing.request_depth()
+			if depth is not None:
+				depth_normalized = (depth * 1000).astype(np.uint16)
+				image = Image.fromarray(depth_normalized)
+				image.save('/Titan/dataset/cloudrender/test_assets/depth_frame/{:06}.png'.format(cnt))
+				
+			cnt += 1
+	
+	logger.info("Done")
 
-# Set camera trajectory and fill in spaces between keypoints with interpolation
-logger.info("Creating camera trajectory")
-camera_trajectory = Trajectory()
-camera_trajectory.set_trajectory(json.load(open("test_assets/TRAJ_SUB4_MPI_Etage6_working_standing.json")))
-camera_trajectory.refine_trajectory(time_step=1 / 30.0)
-print(camera_trajectory)
-
-'''
-##### RUN main drawing loop
-'''
-
-### Main drawing loop ###
-logger.info("Running the main drawing loop")
-
-from PIL import Image
-cnt = 0
-with DirectCapture(resolution) as capturing:
-    for current_time in tqdm(np.arange(video_start_time, video_start_time + video_length_seconds, 1 / fps)):
-        # Update dynamic objects
-        shadowmap.camera.init_extrinsics(pose=shadowmap_offset)
-        # Move the camera along the trajectory
-        camera_trajectory.apply(camera, current_time)
-
-        # Clear OpenGL buffers
-        gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
-        # Draw the scene
-        main_scene.draw()
-        # Request color readout; optionally receive previous request
-        gl.glBindFramebuffer(gl.GL_READ_FRAMEBUFFER, _main_fb)
-
-        # gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT0)
-        color = capturing.request_color()
-        if color is not None:
-            image = Image.fromarray(color)
-            image.save('/Titan/dataset/cloudrender/test_assets/rgb_frame/{:06}.png'.format(cnt))
-    
-        # gl.glReadBuffer(gl.GL_DEPTH_ATTACHMENT)
-        depth = capturing.request_depth()
-        if depth is not None:
-            depth_normalized = (depth * 1000).astype(np.uint16)
-            image = Image.fromarray(depth_normalized)
-            image.save('/Titan/dataset/cloudrender/test_assets/depth_frame/{:06}.png'.format(cnt))
-
-        cnt += 1
-
-logger.info("Done")
+# Run the main drawing loop
+if __name__ == "__main__":
+	resolution = (1280, 720)
+	fps = 1.0
+	video_start_time = 0.0
+	video_length_seconds = 20.0
+	main_drawing_loop(resolution, fps, video_start_time, video_length_seconds)
