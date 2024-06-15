@@ -12,8 +12,8 @@ from cloudrender.capturing import AsyncPBOCapture, DirectCapture
 from videoio import VideoWriter
 from OpenGL import GL as gl
 from tqdm import tqdm
-from cloudrender.utils import trimesh_load_from_zip
 from PIL import Image
+import trimesh
 import argparse
 
 parser = argparse.ArgumentParser(description='Render and save an RGBD image.')
@@ -77,8 +77,7 @@ def load_pointcloud(scene, camera):
 	renderable_pc = SimplePointcloud(camera=camera)
 	renderable_pc.generate_shadows = False
 	renderable_pc.init_context()
-	import trimesh
-	pointcloud = trimesh.load("test_assets/MPI_Etage6/pointcloud.ply")
+	pointcloud = trimesh.load('{}/pointcloud.ply'.format(args.path_input_data))
 	renderable_pc.set_buffers(pointcloud)
 	scene.add_object(renderable_pc)
 
@@ -96,8 +95,10 @@ def setup_lighting(scene):
 # Create camera trajectory
 def create_camera_trajectory():
 	camera_trajectory = Trajectory()
-	camera_trajectory.set_trajectory(json.load(open("test_assets/TRAJ_SUB4_MPI_Etage6_working_standing.json")))
-	camera_trajectory.refine_trajectory(time_step=1 / 30.0)
+	camera_trajectory.set_trajectory(json.load( \
+		open('{}/TRAJ_SUB4_MPI_Etage6_working_standing.json'.format(args.path_input_data)) \
+	))
+	camera_trajectory.refine_trajectory(time_step=1/30.0)
 	return camera_trajectory
 
 # Main drawing loop
@@ -124,13 +125,13 @@ def main_drawing_loop(resolution, fps, video_start_time, video_length_seconds):
 			color = capturing.request_color()
 			if color is not None:
 				image = Image.fromarray(color)
-				image.save('/Titan/dataset/cloudrender/test_assets/rgb_frame/{:06}.png'.format(cnt))
+				image.save('{}/rgb_frame/{:06}.png'.format(args.path_input_data, cnt))
 				
 			depth = capturing.request_depth()
 			if depth is not None:
 				depth_normalized = (depth * 1000).astype(np.uint16)
 				image = Image.fromarray(depth_normalized)
-				image.save('/Titan/dataset/cloudrender/test_assets/depth_frame/{:06}.png'.format(cnt))
+				image.save('{}/depth_frame/{:06}.png'.format(args.path_input_data, cnt))
 				
 			cnt += 1
 	
