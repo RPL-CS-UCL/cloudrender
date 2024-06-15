@@ -112,7 +112,13 @@ def main_drawing_loop(resolution, fps, video_start_time, video_length_seconds):
 	load_pointcloud(main_scene, camera)
 	shadowmap, shadowmap_offset = setup_lighting(main_scene)
 	camera_trajectory = create_camera_trajectory()
-	
+
+	if not os.path.exists('{}/rgb_frame'.format(args.path_input_data)):
+		os.makedirs('{}/rgb_frame'.format(args.path_input_data))
+	if not os.path.exists('{}/depth_frame'.format(args.path_input_data)):
+		os.makedirs('{}/depth_frame'.format(args.path_input_data))
+	# quat: w, x, y, z
+
 	cnt = 0
 	with DirectCapture(resolution) as capturing:
 		for current_time in tqdm(np.arange(video_start_time, video_start_time + video_length_seconds, 1 / fps)):
@@ -140,7 +146,7 @@ def main_drawing_loop(resolution, fps, video_start_time, video_length_seconds):
 # Run the main drawing loop
 if __name__ == "__main__":
 	resolution = (1280, 720)
-	fps = 1.0
+	fps = 30.0
 	video_start_time = 0.0
-	video_length_seconds = 20.0
+	video_length_seconds = 3.0
 	main_drawing_loop(resolution, fps, video_start_time, video_length_seconds)
