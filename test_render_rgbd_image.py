@@ -6,9 +6,7 @@ import numpy as np
 import sys
 import os
 import json
-import smplpytorch
 from cloudrender.render import SimplePointcloud, DirectionalLight
-from cloudrender.render.smpl import AnimatableSMPLModel
 from cloudrender.camera import PerspectiveCameraModel
 from cloudrender.camera.trajectory import Trajectory
 from cloudrender.scene import Scene
@@ -16,25 +14,22 @@ from cloudrender.capturing import AsyncPBOCapture
 from videoio import VideoWriter
 from OpenGL import GL as gl
 from tqdm import tqdm
-from cloudrender.utils import trimesh_load_from_zip, load_hps_sequence
+from cloudrender.utils import trimesh_load_from_zip
 
 logger = logging.getLogger("main_script")
 logger.setLevel(logging.INFO)
 
-
 # This example shows how to:
 # - render pointcloud
-# - render a sequence of frames with moving SMPL mesh
 # - smoothly move the camera
 # - dump rendered frames to a video
 
-
 # First, let's set the target resolution, framerate, video length and initialize OpenGL context.
 # We will use EGL offscreen rendering for that, but you can change it to whatever context you prefer (e.g. OsMesa, X-Server)
-resolution = (1280,720)
-fps = 30.
-video_start_time = 6.
-video_length_seconds = 12.
+resolution = (1280, 720)
+fps = 30.0
+video_start_time = 6.0
+video_length_seconds = 12.0
 logger.info("Initializing EGL and OpenGL")
 context = EGLContext()
 if not context.initialize(*resolution):
@@ -84,7 +79,7 @@ gl.glDepthRange(0.0, 1.0)
 # Create and set a position of the camera
 camera = PerspectiveCameraModel()
 camera.init_intrinsics(resolution, fov=75, far=50)
-camera.init_extrinsics(np.array([1,np.pi/5,0,0]), np.array([0,-1,2]))
+camera.init_extrinsics(np.array([1, np.pi / 5, 0, 0]), np.array([0, -1, 2]))
 
 # Create a scene
 main_scene = Scene()
@@ -99,53 +94,30 @@ pointcloud = trimesh_load_from_zip("test_assets/MPI_Etage6.zip", "*/pointcloud.p
 renderable_pc.set_buffers(pointcloud)
 main_scene.add_object(renderable_pc)
 
+# Add a directional light with shadows for this scene
+light = DirectionalLight(np.array([0.0, -1.0, -1.0]), np.array([0.8, 0.8, 0.8]))
 
-# Load human motion
-logger.info("Loading SMPL animation")
-# set different smpl_root to SMPL .pkl files folder if needed
-# Make sure to fix the typo for male model while unpacking SMPL .pkl files:
-# basicmodel_m_lbs_10_207_0_v1.0.0.pkl -> basicModel_m_lbs_10_207_0_v1.0.0.pkl
-renderable_smpl = AnimatableSMPLModel(camera=camera, gender="male",
-    smpl_root=os.path.join(os.path.dirname(smplpytorch.__file__), "native/models"))
-# Turn off shadow drawing for SMPL model, as self-shadowing produces artifacts usually
-renderable_smpl.draw_shadows = False
-renderable_smpl.init_context()
-motion_seq = load_hps_sequence("test_assets/SUB4_MPI_Etage6_working_standing.pkl", "test_assets/SUB4.json")
-renderable_smpl.set_sequence(motion_seq, default_frame_time=1/30.)
-# Let's set diffuse material for SMPL model
-renderable_smpl.set_material(0.3,1,0,0)
-main_scene.add_object(renderable_smpl)
-
-
-# Let's add a directional light with shadows for this scene
-light = DirectionalLight(np.array([0., -1., -1.]), np.array([0.8, 0.8, 0.8]))
-
-
-# We'll create a 4x4x10 meter shadowmap with 1024x1024 texture buffer and center it above the model along the direction
-# of the light. We will move the shadomap with the model in the main loop
-smpl_model_shadowmap_offset = -light.direction*3
-smpl_model_shadowmap = main_scene.add_dirlight_with_shadow(light=light, shadowmap_texsize=(1024,1024),
-                                    shadowmap_worldsize=(4.,4.,10.),
-                                    shadowmap_center=motion_seq[0]['translation']+smpl_model_shadowmap_offset)
-
+# Create a 4x4x10 meter shadowmap with 1024x1024 texture buffer and center it above the model along the direction
+# of the light. We will move the shadowmap with the model in the main loop
+shadowmap_offset = -light.direction * 3
+shadowmap = main_scene.add_dirlight_with_shadow(light=light, shadowmap_texsize=(1024, 1024),
+                                                shadowmap_worldsize=(4.0, 4.0, 10.0),
+                                                shadowmap_center=np.array([0.0, 0.0, 0.0]) + shadowmap_offset)
 
 # Set camera trajectory and fill in spaces between keypoints with interpolation
 logger.info("Creating camera trajectory")
 camera_trajectory = Trajectory()
 camera_trajectory.set_trajectory(json.load(open("test_assets/TRAJ_SUB4_MPI_Etage6_working_standing.json")))
-camera_trajectory.refine_trajectory(time_step=1/30.)
-
+camera_trajectory.refine_trajectory(time_step=1 / 30.0)
 
 ### Main drawing loop ###
 logger.info("Running the main drawing loop")
 # Create a video writer to dump frames to and an async capturing controller
 with VideoWriter("test_assets/output.mp4", resolution=resolution, fps=fps) as vw, \
         AsyncPBOCapture(resolution, queue_size=50) as capturing:
-    for current_time in tqdm(np.arange(video_start_time, video_start_time+video_length_seconds, 1/fps)):
+    for current_time in tqdm(np.arange(video_start_time, video_start_time + video_length_seconds, 1 / fps)):
         # Update dynamic objects
-        renderable_smpl.set_time(current_time)
-        smpl_model_shadowmap.camera.init_extrinsics(
-            pose=renderable_smpl.translation_params.cpu().numpy()+smpl_model_shadowmap_offset)
+        shadowmap.camera.init_extrinsics(pose=shadowmap_offset)
         # Move the camera along the trajectory
         camera_trajectory.apply(camera, current_time)
         # Clear OpenGL buffers
