@@ -14,6 +14,7 @@ Copy the code without installation
 ```bash
 git clone https://github.com/vguzov/cloudrender
 pip install -r requirements.txt
+pip install git+https://github.com/mattloper/chumpy
 ```
 or install as a package with
 ```
