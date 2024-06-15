@@ -86,7 +86,7 @@ def setup_lighting(scene):
 		shadowmap_worldsize=(4.0, 4.0, 10.0),
 		shadowmap_center=np.array([0.0, 0.0, 0.0]) + shadowmap_offset
 	)
-	return shadowmap
+	return shadowmap, shadowmap_offset
 
 # Create camera trajectory
 def create_camera_trajectory():
@@ -104,7 +104,7 @@ def main_drawing_loop(resolution, fps, video_start_time, video_length_seconds):
 	camera = create_camera(resolution)
 	main_scene = create_scene()
 	load_pointcloud(main_scene, camera)
-	shadowmap = setup_lighting(main_scene)
+	shadowmap, shadowmap_offset = setup_lighting(main_scene)
 	camera_trajectory = create_camera_trajectory()
 	
 	cnt = 0
