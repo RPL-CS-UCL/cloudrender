@@ -122,7 +122,7 @@ def main_drawing_loop(resolution, fps, video_start_time, video_length_seconds):
 	cnt = 0
 	with DirectCapture(resolution) as capturing:
 		for current_time in tqdm(np.arange(video_start_time, video_start_time + video_length_seconds, 1 / fps)):
-			shadowmap.camera.init_extrinsics(pose=shadowmap_offset)
+			# shadowmap.camera.init_extrinsics(pose=shadowmap_offset)
 			camera_trajectory.apply(camera, current_time)
 			gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 			main_scene.draw()
@@ -146,7 +146,8 @@ def main_drawing_loop(resolution, fps, video_start_time, video_length_seconds):
 # Run the main drawing loop
 if __name__ == "__main__":
 	resolution = (1280, 720)
-	fps = 30.0
+	# resolution = (640, 360)
+	fps = 10.0
 	video_start_time = 0.0
 	video_length_seconds = 3.0
 	main_drawing_loop(resolution, fps, video_start_time, video_length_seconds)
