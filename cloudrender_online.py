@@ -24,12 +24,15 @@ from scipy.spatial.transform import Rotation
 from cloudrender.capturing import DirectCapture
 from OpenGL import GL as gl
 import cloudrender_rgbd_image as cr_rgbd
+from cloudrender.camera import PerspectiveCameraModel
 
 default_sim_settings = {
 	"frame_rate": 30, # image frame rate
 	"width": 640, # horizontal resolution
 	"height": 360, # vertical resolution
 	"fov": 50.0, # horizontal FOV
+	"far_plane": 15.0,
+	"near_plane": 0.05,
 	"camera_offset_z": 0, # camera z-offset
 	"camera_info": True,
 	"color_sensor": True,  # RGB sensor
@@ -83,7 +86,10 @@ class DemoRunner:
 		self.gl_context = cr_rgbd.initialize_context(self.gl_resolution)
 		self.gl_main_fb = cr_rgbd.setup_framebuffers(self.gl_resolution)
 		cr_rgbd.setup_opengl(self.gl_resolution)
-		self.gl_camera = cr_rgbd.create_camera(self.gl_resolution)
+		self.gl_camera = PerspectiveCameraModel()
+		self.gl_camera.init_intrinsics(self.gl_resolution, fov=self._sim_settings['fov'], \
+																   far=self._sim_settings['far_plane'], near=self._sim_settings['near_plane'])
+		cr_rgbd.create_camera(self.gl_resolution)
 		self.gl_main_scene = cr_rgbd.create_scene()
 		cr_rgbd.load_pointcloud(self.gl_main_scene, self.gl_camera, self._sim_settings['scene'])
 		self.gl_shadowmap, self.gl_shadowmap_offset = cr_rgbd.setup_lighting(self.gl_main_scene)
@@ -189,9 +195,9 @@ class DemoRunner:
 					camera_info_msg.width = self._sim_settings['width']
 					camera_info_msg.distortion_model = 'plumb_bob'
 					camera_info_msg.D = [0.0, 0.0, 0.0, 0.0, 0.0]
-					camera_info_msg.K = [K[0][0], 0, K[0][2], 0, K[1][0], K[1][2], 0, 0, 1]					
+					camera_info_msg.K = [K[0][0], 0, K[0][2], 0, K[1][1], K[1][2], 0, 0, 1]					
 					camera_info_msg.R = [1, 0, 0, 0, 1, 0, 0, 0, 1]   
-					camera_info_msg.P = [K[0][0], 0, K[0][2], 0, 0, K[1][0], K[1][2], 0, 0, 0, 1, 0]
+					camera_info_msg.P = [K[0][0], 0, K[0][2], 0, 0, K[1][1], K[1][2], 0, 0, 0, 1, 0]
 					self.publish_camera_info(camera_info_msg)
 
 				if self._sim_settings["color_sensor"]:
@@ -202,7 +208,11 @@ class DemoRunner:
 				if self._sim_settings["depth_sensor"]:
 					depth_img = capturing.request_depth()
 					if depth_img is not None:
-						self.publish_depth_observation(depth_img)
+						near_plane = self._sim_settings['near_plane']
+						far_plane = self._sim_settings['far_plane']
+						linear_depth_buffer = (2.0 * near_plane * far_plane) / \
+																	(far_plane + near_plane - (2.0 * depth_img - 1.0) * (far_plane - near_plane))
+						self.publish_depth_observation(linear_depth_buffer)
 
 				if self._sim_settings["semantic_sensor"]:
 					pass

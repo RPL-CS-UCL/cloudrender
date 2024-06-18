@@ -61,7 +61,7 @@ def setup_opengl(resolution):
 # Create and set a position of the camera
 def create_camera(resolution):
 	camera = PerspectiveCameraModel()
-	camera.init_intrinsics(resolution, fov=50.0, far=50)
+	camera.init_intrinsics(resolution, fov=50.0, far=50, near=0.05)
 	return camera
 
 # Create a scene
