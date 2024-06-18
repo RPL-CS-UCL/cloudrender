@@ -69,6 +69,7 @@ class SimplePointcloud(Pointcloud):
         gl.glDeleteBuffers(2, [self.context.vertexbuffer, self.context.colorbuffer])
         gl.glDeleteVertexArrays(1, [self.context.vao])
 
+    # Main program to set OpenGL buffer
     def _set_buffers(self, pointcloud: Union[Pointcloud.PointcloudContainer, trimesh.points.PointCloud]):
         glverts = np.copy(pointcloud.vertices.astype(np.float32), order='C')
         glcolors = np.copy(pointcloud.colors.astype(np.float32) / 255., order='C')

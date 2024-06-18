@@ -15,8 +15,9 @@ class BaseCameraModel(ABC):
     def __init__(self, camera_model):
         self.context = self.CameraContext()
         self.model = camera_model
+
         self.context.View = glm.mat4(1.0)
-        self.quat = np.array([1.,0,0,0])
+        self.quat = np.array([1., 0, 0, 0]) # [w, x, y, z]
         self.pose = np.zeros(3)
         self.world2cam = False
 
@@ -26,13 +27,16 @@ class BaseCameraModel(ABC):
         self.quat = quat
         self.pose = pose
         self.world2cam = world2cam
+        # Rotation.from_quat: [x, y, z, w]
         R = Rotation.from_quat(np.roll(quat, -1)).as_matrix()
         t = np.array([pose]).T
+
         if world2cam:
             RT = np.vstack([np.hstack([R, t]), [[0, 0, 0, 1]]])
         else:
             #otherwise invert cam2world to world2cam
             RT = np.vstack([np.hstack([R.T, -np.matmul(R.T, t)]), [[0, 0, 0, 1]]])
+
         self.context.View = glm.mat4(*(RT.T.astype(np.float32).copy().flatten()))
 
     @abstractmethod
@@ -141,7 +145,6 @@ class PerspectiveCameraModel(StandardProjectionCameraModel):
         width,height = image_size
         self.context.Projection = glm.perspective(glm.radians(fov),float(width)/float(height),near,far)
         self.context.width_mul = image_size[1] / image_size[0]
-
 
 class OrthogonalCameraModel(StandardProjectionCameraModel):
     def __init__(self):

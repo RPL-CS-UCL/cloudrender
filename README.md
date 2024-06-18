@@ -36,6 +36,21 @@ The following script will write a short video inside `test_assets/output.mp4` wh
 <img src="images/test_scene_video_output_example.gif" alt="output example"/>
 </p>
 
+## Note to the given camera_trajectory
+The definition of the camera frame (x: right, y: up, z: backward) is different from that in ROS (x: right, y: down, z: forward). For convenience, please provide the pose in the world as the body frame definition (x: forward, y: left, z: up), and then do right multipulation:
+```
+T^world_cam = T^world_body * T_offset
+```
+where
+```
+T_offset = [quat2rotm([0.5000,0.5000, -0.500, -0.5000]), [0, 0, 0]'; 0 0 0 1]
+```
+quaternion is defined as [w, x, y, z]
+
+<p align="center">
+<img src="images/coordinate_definition.png" alt="output example" width="30%"/>
+</p>
+
 ## More data
 Please check our HPS project page for more 3D scans and motion data: http://virtualhumans.mpi-inf.mpg.de/hps/
 
