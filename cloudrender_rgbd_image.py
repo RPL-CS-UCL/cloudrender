@@ -16,11 +16,6 @@ from PIL import Image
 import trimesh
 import argparse
 
-parser = argparse.ArgumentParser(description='Render and save an RGBD image.')
-parser.add_argument('--path_input_data', type=str, default='path_input_data.ply', help='Path of input data.')
-parser.add_argument('--camera_fov', type=float, default=50.0, help='FoV of camera.')
-args = parser.parse_args()
-
 # Initialize logging
 def initialize_logging():
 	logger = logging.getLogger("main_script")
@@ -66,7 +61,7 @@ def setup_opengl(resolution):
 # Create and set a position of the camera
 def create_camera(resolution):
 	camera = PerspectiveCameraModel()
-	camera.init_intrinsics(resolution, fov=args.camera_fov, far=50)
+	camera.init_intrinsics(resolution, fov=50.0, far=50)
 	return camera
 
 # Create a scene
@@ -74,12 +69,11 @@ def create_scene():
 	return Scene()
 
 # Load pointcloud and add to scene
-def load_pointcloud(scene, camera):
+def load_pointcloud(scene, camera, path_pointcloud):
 	renderable_pc = SimplePointcloud(camera=camera)
 	renderable_pc.generate_shadows = False
 	renderable_pc.init_context()
-	pointcloud = trimesh.load('{}/pointcloud.ply'.format(args.path_input_data))
-	# pointcloud.vertices[:, 2] *= -1
+	pointcloud = trimesh.load(path_pointcloud)
 	renderable_pc.set_buffers(pointcloud)
 	scene.add_object(renderable_pc)
 
@@ -125,7 +119,7 @@ def main_drawing_loop(resolution, fps, video_start_time, video_length_seconds):
 	setup_opengl(resolution)
 	camera = create_camera(resolution)
 	main_scene = create_scene()
-	load_pointcloud(main_scene, camera)
+	load_pointcloud(main_scene, camera, '{}/pointcloud.ply'.format(args.path_input_data))
 	shadowmap, shadowmap_offset = setup_lighting(main_scene)
 	camera_trajectory = create_camera_trajectory()
 
@@ -167,6 +161,11 @@ def main_drawing_loop(resolution, fps, video_start_time, video_length_seconds):
 
 # Run the main drawing loop
 if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description='Render and save an RGBD image.')
+	parser.add_argument('--path_input_data', type=str, default='path_input_data.ply', help='Path of input data.')
+	parser.add_argument('--camera_fov', type=float, default=50.0, help='FoV of camera.')
+	args = parser.parse_args()
+
 	resolution = (1280, 720)
 	fps = 5.0
 	video_start_time = 0.0
