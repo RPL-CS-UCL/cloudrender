@@ -1,3 +1,6 @@
+# Usage: python3 cloudrender_online.py --path_input_data path_input_data --fov 50.0
+
+#!/usr/bin/python3
 from cloudrender.libegl import EGLContext
 import logging
 import numpy as np

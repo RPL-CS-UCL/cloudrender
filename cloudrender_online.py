@@ -1,3 +1,5 @@
+# Usage: python3 cloudrender_online.py --scene xx.ply
+
 #!/usr/bin/python3
 import rospy
 from nav_msgs.msg import Odometry
