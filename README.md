@@ -20,9 +20,12 @@ or install as a package with
 ```
 pip install cloudrender
 ```
-#### Step 2. Get the SMPL model
+#### Step 2. Get the SMPL model to render human motion
 - Follow install instructions at https://github.com/gulvarol/smplpytorch
 - Make sure to fix the typo for male model while unpacking SMPL .pkl files: `basicmodel_m_lbs_10_207_0_v1.0.0.pkl -> basicModel_m_lbs_10_207_0_v1.0.0.pkl`
+
+#### Step 3. Download data
+Click this [link](https://drive.google.com/drive/folders/19klLjI6eztZ7GbXQ4kDw33QOg2yNuiEw?usp=sharing)
 
 ## Running test script
 ### test_scene_video.py
@@ -33,8 +36,11 @@ Run `test_scene_video.py`
 
 The following script will write a short video inside `test_assets/output.mp4` which should look similar to this:
 <p align="center">
-<img src="images/test_scene_video_output_example.gif" alt="output example"/>
+    <img src="images/test_scene_video_output_example.gif" alt="output example"/>
 </p>
+
+### cloudrender_rgbd_image.py
+Run `cloudrender_rgbd_image.py --path_input_data test_assets` to render RGB-D images
 
 ## Note to the given camera_trajectory
 The definition of the camera frame (x: right, y: up, z: backward) is different from that in ROS (x: right, y: down, z: forward). For convenience, please provide the pose in the world as the body frame definition (x: forward, y: left, z: up), and then do right multipulation:
