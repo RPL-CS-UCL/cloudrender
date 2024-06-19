@@ -54,7 +54,7 @@ def setup_framebuffers(resolution):
 def setup_opengl(resolution):
 	gl.glEnable(gl.GL_BLEND)
 	gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
-	gl.glClearColor(0.0, 0.0, 0.0, 0)
+	gl.glClearColor(0.0, 0.0, 0.0, 0.0)
 	gl.glViewport(0, 0, *resolution)
 	gl.glEnable(gl.GL_DEPTH_TEST)
 	gl.glDepthMask(gl.GL_TRUE)
@@ -74,7 +74,7 @@ def create_scene():
 # Load pointcloud and add to scene
 def load_pointcloud(scene, camera, path_pointcloud):
 	renderable_pc = SimplePointcloud(camera=camera)
-	renderable_pc.generate_shadows = False
+	renderable_pc.generate_shadows = True
 	renderable_pc.init_context()
 	pointcloud = trimesh.load(path_pointcloud)
 	renderable_pc.set_buffers(pointcloud)
