@@ -142,17 +142,13 @@ def main_drawing_loop(resolution, fps, video_start_time, video_length_seconds):
 			main_scene.draw()
 			gl.glBindFramebuffer(gl.GL_READ_FRAMEBUFFER, _main_fb)
 			
-			start_time = time.time()
 			color = capturing.request_color()
-			# print('comp_time (color): {:3f}ms'.format((time.time() - start_time) * 1000))
 			if color is not None:
 				image = Image.fromarray(color)
 				image.save('{}/rgb_frame/{:06}.png'.format(args.path_input_data, cnt))
 				vw.write(color)
 				
-			start_time = time.time()
 			depth = capturing.request_depth()
-			# print('comp_time (depth): {:3f}ms'.format((time.time() - start_time) * 1000))
 			if depth is not None:
 				depth_normalized = (depth * 1000).astype(np.uint16)
 				image = Image.fromarray(depth_normalized)
