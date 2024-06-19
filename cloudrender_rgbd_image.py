@@ -54,7 +54,7 @@ def setup_framebuffers(resolution):
 def setup_opengl(resolution):
 	gl.glEnable(gl.GL_BLEND)
 	gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
-	gl.glClearColor(1.0, 1.0, 1.0, 0)
+	gl.glClearColor(0.0, 0.0, 0.0, 0)
 	gl.glViewport(0, 0, *resolution)
 	gl.glEnable(gl.GL_DEPTH_TEST)
 	gl.glDepthMask(gl.GL_TRUE)
